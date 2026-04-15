@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Ira's Cute Alarm</string>
+    <string name="app_name">Ira\'s Cute Alarm</string>
     
     <!-- Alarm titles -->
     <string name="alarm_medicine">Drink Medicine</string>
     <string name="alarm_meal">Eat</string>
     
     <!-- Notification -->
-    <string name="notification_channel_name">Ira's Cute Alarm</string>
+    <string name="notification_channel_name">Ira\'s Cute Alarm</string>
     <string name="notification_channel_description">Gentle reminders for medicine and meals</string>
     <string name="notification_title_alarm">Time for %1$s!</string>
     <string name="notification_text_alarm">Don\'t forget to take care of yourself</string>
