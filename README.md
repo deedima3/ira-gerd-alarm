@@ -18,7 +18,7 @@ A beautiful, gentle alarm app for managing medicine and meal reminders with cute
 
 ## 📲 Download
 
-Get the latest release from [GitHub Releases](https://github.com/yourusername/iras-cute-alarm/releases/latest)
+Get the latest release from [GitHub Releases](https://github.com/deedima3/iras-cute-alarm/releases/latest)
 
 The app will automatically check for and install updates!
 
