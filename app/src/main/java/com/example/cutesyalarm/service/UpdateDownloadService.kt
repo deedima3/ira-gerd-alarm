@@ -147,7 +147,7 @@ class UpdateDownloadService : Service() {
     private fun showInstallNotification(versionName: String, apkFile: File) {
         val apkUri = FileProvider.getUriForFile(
             this,
-            "${applicationId}.fileprovider",
+            "${packageName}.fileprovider",
             apkFile
         )
 
