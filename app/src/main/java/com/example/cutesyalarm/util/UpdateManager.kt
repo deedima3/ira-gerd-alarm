@@ -18,7 +18,7 @@ class UpdateManager(private val context: Context) {
     companion object {
         // GitHub repository configuration
         const val GITHUB_OWNER = "deedima3"
-        const val GITHUB_REPO = "iras-cute-alarm"
+        const val GITHUB_REPO = "ira-gerd-alarm"
         
         // GitHub Releases API URL (fetches latest release)
         const val GITHUB_RELEASES_API = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
