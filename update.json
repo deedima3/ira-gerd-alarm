@@ -1,0 +1,8 @@
+{
+  "versionCode": 2,
+  "versionName": "1.1.0",
+  "downloadUrl": "https://github.com/YourUsername/iras-cute-alarm/releases/latest/download/app-release.apk",
+  "releaseNotes": "✨ New Features:\n- Improved alarm reliability\n- Cute new app icon\n- Better lock screen support\n- Auto OTA updates from GitHub Releases\n\n🐛 Bug Fixes:\n- Fixed scheduled alarms not firing\n- Fixed alarm screen not showing",
+  "forceUpdate": false,
+  "minSdk": 26
+}

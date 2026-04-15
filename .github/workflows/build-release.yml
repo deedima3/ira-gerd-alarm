@@ -1,0 +1,141 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version name (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+        
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Decode Keystore
+      env:
+        ENCODED_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 }}
+      run: |
+        if [ -z "$ENCODED_KEYSTORE" ]; then
+          echo "Warning: No keystore found. Building debug version."
+          echo "To enable release signing, add KEYSTORE_BASE64 secret to GitHub."
+        else
+          echo "$ENCODED_KEYSTORE" | base64 -d > ira-cute-alarm.keystore
+          echo "Keystore created successfully"
+        fi
+        
+    - name: Build with Gradle
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        if [ -f ira-cute-alarm.keystore ]; then
+          # Build release APK with signing
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=ira-cute-alarm.keystore \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+        else
+          # Build debug APK
+          ./gradlew assembleDebug
+        fi
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-apk
+        path: |
+          app/build/outputs/apk/release/*.apk
+          app/build/outputs/apk/debug/*.apk
+        retention-days: 5
+        
+    - name: Get Version Name
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION=${{ github.event.inputs.version_name }}
+        elif [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION=$(date +'%Y.%m.%d')-$(echo $GITHUB_SHA | cut -c1-7)
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ steps.version.outputs.version }}
+        tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+        body: |
+          🎉 New version of Ira's Cute Alarm!
+          
+          **Changes:**
+          - See commits for detailed changes
+          
+          **Installation:**
+          1. Download the APK file below
+          2. Enable "Install from unknown sources" in Settings
+          3. Install the APK
+          4. The app will automatically check for future updates
+          
+          **Auto-Update:**
+          The app includes an OTA update system that checks GitHub Releases automatically.
+        files: |
+          app/build/outputs/apk/release/*.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Update update.json
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        # Convert version name to version code (1.0.0 -> 1000000)
+        VERSION_CODE=$(echo $VERSION | awk -F. '{print $1*1000000 + $2*1000 + $3}')
+        
+        cat > update.json << EOF
+        {
+          "versionCode": $VERSION_CODE,
+          "versionName": "$VERSION",
+          "downloadUrl": "https://github.com/${{ github.repository }}/releases/latest/download/app-release.apk",
+          "releaseNotes": "New release version $VERSION",
+          "forceUpdate": false,
+          "minSdk": 26
+        }
+        EOF
+        
+        echo "Generated update.json:"
+        cat update.json
+        
+    - name: Upload update.json
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: update-json
+        path: update.json
+        retention-days: 30
