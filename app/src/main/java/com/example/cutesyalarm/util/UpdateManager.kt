@@ -17,8 +17,7 @@ class UpdateManager(private val context: Context) {
 
     companion object {
         // GitHub repository configuration
-        // ⚠️ UPDATE THESE VALUES after creating your GitHub repository
-        const val GITHUB_OWNER = "YourUsername"  // Replace with your GitHub username
+        const val GITHUB_OWNER = "deedima3"
         const val GITHUB_REPO = "iras-cute-alarm"
         
         // GitHub Releases API URL (fetches latest release)
