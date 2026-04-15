@@ -1,18 +1,7 @@
 name: Build and Release APK
 
 on:
-  push:
-    branches: [ main, master ]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      version_name:
-        description: 'Version name (e.g., 1.0.0)'
-        required: true
-        default: '1.0.0'
 
 jobs:
   build:
@@ -23,7 +12,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -34,6 +25,43 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
+    - name: Auto bump version
+      id: bump_version
+      run: |
+        # Read current version from build.gradle
+        CURRENT_VERSION=$(grep -E 'versionName\s+"[0-9]+\.[0-9]+"' app/build.gradle | grep -oE '"[0-9]+\.[0-9]+"' | tr -d '"')
+        CURRENT_CODE=$(grep -E 'versionCode\s+[0-9]+' app/build.gradle | grep -oE '[0-9]+')
+        
+        echo "Current version: $CURRENT_VERSION (code: $CURRENT_CODE)"
+        
+        # Parse version components
+        MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+        MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+        
+        # Bump minor version
+        NEW_MINOR=$((MINOR + 1))
+        NEW_VERSION="$MAJOR.$NEW_MINOR"
+        NEW_CODE=$((CURRENT_CODE + 1))
+        
+        echo "New version: $NEW_VERSION (code: $NEW_CODE)"
+        
+        # Update build.gradle
+        sed -i "s/versionCode $CURRENT_CODE/versionCode $NEW_CODE/" app/build.gradle
+        sed -i "s/versionName \"$CURRENT_VERSION\"/versionName \"$NEW_VERSION\"/" app/build.gradle
+        
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version_code=$NEW_CODE" >> $GITHUB_OUTPUT
+        echo "Updated build.gradle"
+        grep -E 'versionCode|versionName' app/build.gradle
+        
+    - name: Commit version bump
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add app/build.gradle
+        git commit -m "chore: bump version to ${{ steps.bump_version.outputs.version }}" || echo "No changes to commit"
+        git push
+        
     - name: Decode Keystore
       env:
         ENCODED_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 }}
@@ -76,21 +104,7 @@ jobs:
         path: ${{ steps.build.outputs.apk_path }}/${{ steps.build.outputs.apk_pattern }}
         retention-days: 5
         
-    - name: Get Version Name
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          VERSION=${{ github.event.inputs.version_name }}
-        elif [[ $GITHUB_REF == refs/tags/* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/v}
-        else
-          VERSION=$(date +'%Y.%m.%d')-$(echo $GITHUB_SHA | cut -c1-7)
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
-        
     - name: Find APK File
-      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       id: find_apk
       run: |
         APK_FILE=$(find ${{ steps.build.outputs.apk_path }} -name "*.apk" -type f | head -1)
@@ -102,13 +116,14 @@ jobs:
         echo "Found APK: $APK_FILE"
         
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       uses: softprops/action-gh-release@v2
       with:
-        name: Release ${{ steps.version.outputs.version }}
-        tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+        name: Release ${{ steps.bump_version.outputs.version }}
+        tag_name: v${{ steps.bump_version.outputs.version }}
         body: |
           🎉 New version of Ira's Cute Alarm!
+          
+          **Version:** ${{ steps.bump_version.outputs.version }} (${{ steps.bump_version.outputs.version_code }})
           
           **Changes:**
           - See commits for detailed changes
@@ -128,11 +143,9 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Update update.json
-      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       run: |
-        VERSION=${{ steps.version.outputs.version }}
-        # Convert version name to version code (1.0.0 -> 1000000)
-        VERSION_CODE=$(echo $VERSION | awk -F. '{print $1*1000000 + $2*1000 + $3}')
+        VERSION=${{ steps.bump_version.outputs.version }}
+        VERSION_CODE=${{ steps.bump_version.outputs.version_code }}
         
         # Get APK filename
         APK_FILENAME=$(basename "${{ steps.find_apk.outputs.apk_file }}")
@@ -152,7 +165,6 @@ jobs:
         cat update.json
         
     - name: Upload update.json
-      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       uses: actions/upload-artifact@v4
       with:
         name: update-json
