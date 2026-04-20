@@ -42,6 +42,53 @@ import androidx.compose.ui.platform.LocalConfiguration
 import kotlin.random.Random
 import kotlin.math.roundToInt
 
+/**
+ * Generates a random target offset from 10 predetermined non-overlapping positions.
+ * All positions are guaranteed to not overlap with the center (where draggable button starts).
+ */
+private fun generateNonOverlappingTargetOffset(
+    screenWidthPx: Float,
+    targetSizePx: Float,
+    screenHeightPx: Float,
+    iconSizePx: Float
+): Pair<Float, Float> {
+    val minDistance = (targetSizePx + iconSizePx) / 2f
+    
+    // Define safe zone boundaries (away from center)
+    val leftBound = -screenWidthPx / 2 + targetSizePx / 2
+    val rightBound = screenWidthPx / 2 - targetSizePx / 2
+    val topBound = -screenHeightPx / 2 + targetSizePx / 2
+    val bottomBound = screenHeightPx / 2 - targetSizePx / 2
+    
+    // 10 predetermined positions distributed in corners and edges
+    // Each position maintains safe distance from center (0,0)
+    val positions = listOf(
+        // Top-left quadrant
+        Pair(leftBound + minDistance, topBound + minDistance),
+        // Top-right quadrant  
+        Pair(rightBound - minDistance, topBound + minDistance),
+        // Bottom-left quadrant
+        Pair(leftBound + minDistance, bottomBound - minDistance),
+        // Bottom-right quadrant
+        Pair(rightBound - minDistance, bottomBound - minDistance),
+        // Left edge
+        Pair(leftBound + minDistance, 0f),
+        // Right edge
+        Pair(rightBound - minDistance, 0f),
+        // Top edge
+        Pair(0f, topBound + minDistance),
+        // Bottom edge
+        Pair(0f, bottomBound - minDistance),
+        // Upper-left diagonal
+        Pair(leftBound + minDistance * 1.5f, topBound + minDistance * 1.5f),
+        // Lower-right diagonal
+        Pair(rightBound - minDistance * 1.5f, bottomBound - minDistance * 1.5f)
+    )
+    
+    // Randomly select one of the 10 positions
+    return positions[Random.nextInt(positions.size)]
+}
+
 class AlarmRingingActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -269,14 +316,25 @@ fun DragToDismissPuzzle(
     var isSuccess by remember { mutableStateOf(false) }
     
     // Random target position (kept stable across recompositions)
+    // Ensures the target doesn't overlap with the draggable button at center
     val targetOffsetX by remember { 
         mutableFloatStateOf(
-            Random.nextFloat() * (screenWidthPx - targetSizePx) - (screenWidthPx / 2 - targetSizePx / 2)
+            generateNonOverlappingTargetOffset(
+                screenWidthPx,
+                targetSizePx,
+                screenHeightPx,
+                iconSizePx
+            ).first
         )
     }
     val targetOffsetY by remember { 
         mutableFloatStateOf(
-            Random.nextFloat() * (screenHeightPx - targetSizePx) - (screenHeightPx / 2 - targetSizePx / 2)
+            generateNonOverlappingTargetOffset(
+                screenWidthPx,
+                targetSizePx,
+                screenHeightPx,
+                iconSizePx
+            ).second
         )
     }
     
