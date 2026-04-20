@@ -352,32 +352,31 @@ fun DragToDismissPuzzle(
             .height(200.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Target zone (drop area) - positioned randomly
-        Box(
-            modifier = Modifier
-                .offset {
-                    IntOffset(
-                        targetOffsetX.roundToInt(),
-                        targetOffsetY.roundToInt()
-                    )
-                }
-                .size(100.dp)
-                .scale(targetScale)
-                .clip(CircleShape)
-                .background(
-                    if (isDragging) CuteColors.PrimaryPink.copy(alpha = 0.5f)
-                    else CuteColors.White.copy(alpha = 0.6f)
+        // Target zone (drop area) - only visible when dragging
+        if (isDragging) {
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            targetOffsetX.roundToInt(),
+                            targetOffsetY.roundToInt()
+                        )
+                    }
+                    .size(100.dp)
+                    .scale(targetScale)
+                    .clip(CircleShape)
+                    .background(CuteColors.PrimaryPink.copy(alpha = 0.5f))
+                    .onGloballyPositioned { coordinates ->
+                        targetBounds = coordinates.boundsInWindow()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "🎯",
+                    style = MaterialTheme.typography.headlineMedium,
+                    textAlign = TextAlign.Center
                 )
-                .onGloballyPositioned { coordinates ->
-                    targetBounds = coordinates.boundsInWindow()
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "🎯",
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
-            )
+            }
         }
         
         // Draggable icon - starts at center
