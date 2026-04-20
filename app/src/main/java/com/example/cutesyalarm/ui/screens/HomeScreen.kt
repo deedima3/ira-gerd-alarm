@@ -28,6 +28,7 @@ import com.example.cutesyalarm.model.AlarmCategory
 import com.example.cutesyalarm.model.getDefaultAlarms
 import com.example.cutesyalarm.ui.components.AlarmCard
 import com.example.cutesyalarm.ui.theme.CuteColors
+import com.example.cutesyalarm.util.AlarmPreferences
 import com.example.cutesyalarm.util.AlarmScheduler
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -43,17 +44,22 @@ fun HomeScreen(
     
     // Alarm states
     var alarms by remember { mutableStateOf(getDefaultAlarms()) }
-    var enabledAlarms by remember { mutableStateOf(alarms.associate { it.id to true }) }
+    var enabledAlarms by remember { 
+        mutableStateOf(alarms.associate { 
+            it.id to AlarmPreferences.isAlarmEnabled(context, it.id, true) 
+        }) 
+    }
     
     // Initialize alarms on first launch
     LaunchedEffect(Unit) {
         alarms.forEach { alarm ->
+            val isEnabled = AlarmPreferences.isAlarmEnabled(context, alarm.id, true)
             AlarmScheduler.scheduleAlarm(
                 context = context,
                 alarmId = alarm.id,
                 title = alarm.title,
                 time = alarm.time,
-                isEnabled = enabledAlarms[alarm.id] ?: true
+                isEnabled = isEnabled
             )
         }
     }
@@ -171,6 +177,9 @@ fun HomeScreen(
                             alarm = alarm,
                             isEnabled = enabledAlarms[alarm.id] ?: true,
                             onToggle = { isEnabled ->
+                                // Persist the enabled state
+                                AlarmPreferences.setAlarmEnabled(context, alarm.id, isEnabled)
+                                
                                 enabledAlarms = enabledAlarms.toMutableMap().apply {
                                     put(alarm.id, isEnabled)
                                 }
