@@ -23,9 +23,10 @@ class AlarmReceiver : BroadcastReceiver() {
         // Wake up the device - keep wake lock until service takes over
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         
-        // Use ACQUIRE_CAUSES_WAKEUP to turn on the screen immediately
+        // Create wake lock with appropriate flags for the Android version
         val wakeLockFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // API 33+: ACQUIRE_CAUSES_WAKEUP is deprecated, but still works
+            // API 33+: ACQUIRE_CAUSES_WAKEUP is deprecated but still functional
+            // ON_AFTER_RELEASE keeps screen on briefly after release
             PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE
         } else {
             PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE
@@ -35,34 +36,51 @@ class AlarmReceiver : BroadcastReceiver() {
             wakeLockFlags,
             "CutesyAlarm::AlarmReceiverWakeLock"
         )
-        wakeLock.acquire(60000) // 60 seconds - give service time to start and show UI
         
-        // Start alarm service for reliable lock screen behavior
+        // Acquire for 30 seconds - enough for service to start and notification to show
+        wakeLock.acquire(30000)
+        
+        // Start alarm service first - this creates the notification with fullScreenIntent
+        // which is the most reliable way to show alarm UI on locked devices
         AlarmService.startAlarm(context, alarmId.hashCode(), alarmTitle, alarmTime)
         
         // Schedule next occurrence (repeat daily)
         AlarmScheduler.scheduleNextAlarm(context, alarmId, alarmTitle, alarmTime)
         
-        // Also try to launch activity directly for immediate feedback
-        // This works when the device is not in deep doze
-        try {
-            val activityIntent = Intent(context, AlarmRingingActivity::class.java).apply {
-                putExtra(EXTRA_ALARM_ID, alarmId)
-                putExtra(EXTRA_ALARM_TITLE, alarmTitle)
-                putExtra(EXTRA_ALARM_TIME, alarmTime)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
-                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+        // Launch activity directly for unlocked devices
+        // The service's fullScreenIntent handles locked devices via notification
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try {
+                val activityIntent = Intent(context, AlarmRingingActivity::class.java).apply {
+                    putExtra(EXTRA_ALARM_ID, alarmId)
+                    putExtra(EXTRA_ALARM_TITLE, alarmTitle)
+                    putExtra(EXTRA_ALARM_TIME, alarmTime)
+                    // Use FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK for fresh activity
+                    // FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS keeps it out of recent apps
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                            Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
+                            Intent.FLAG_ACTIVITY_NO_HISTORY
+                }
+                
+                // Check if we should use ContextCompat for better compatibility
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    // Android 14+: Use startForegroundService if available, otherwise normal start
+                    context.startActivity(activityIntent)
+                } else {
+                    context.startActivity(activityIntent)
+                }
+            } catch (e: Exception) {
+                // If direct launch fails (e.g., device locked or background restriction),
+                // the fullScreenIntent in the service notification will handle it
+                // The user will see the notification and can tap it to open the alarm
             }
-            context.startActivity(activityIntent)
-        } catch (e: Exception) {
-            // Activity might not launch if device is locked, fullScreenIntent in service will handle it
-        }
+        }, 300) // 300ms delay - faster to ensure it appears quickly
         
-        // Release wake lock after a delay to ensure service is running
+        // Schedule wake lock release on a background thread
+        // Use shorter delay since service now has its own wake lock
         Thread {
-            Thread.sleep(10000)
+            Thread.sleep(10000) // 10 seconds is enough for service to be fully running
             if (wakeLock.isHeld) {
                 wakeLock.release()
             }

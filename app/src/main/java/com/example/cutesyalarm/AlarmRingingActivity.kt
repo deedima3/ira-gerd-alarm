@@ -46,14 +46,32 @@ class AlarmRingingActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+        setupAlarmWindow()
+        showAlarm(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // Handle new alarm intents when activity is already running
+        intent?.let { showAlarm(it) }
+    }
+    
+    private fun setupAlarmWindow() {
         // Show on lock screen and wake up device
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
+        }
+        
+        // Request keyguard dismissal for Android O+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                keyguardManager.requestDismissKeyguard(this, null)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                keyguardManager.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
+                    override fun onDismissError() {}
+                    override fun onDismissSucceeded() {}
+                    override fun onDismissCancelled() {}
+                })
             }
         }
         
@@ -67,10 +85,23 @@ class AlarmRingingActivity : ComponentActivity() {
             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // Additional flags to ensure activity shows on top
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+            window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        } else {
             window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         }
         
+        // Bring activity to front even if app is already running
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            setTaskDescription(android.app.ActivityManager.TaskDescription.Builder()
+                .setLabel("⏰ Alarm")
+                .build())
+        }
+    }
+    
+    private fun showAlarm(intent: Intent) {
         val alarmTitle = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_TITLE) ?: "Alarm"
         val alarmTime = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_TIME) ?: "00:00"
         

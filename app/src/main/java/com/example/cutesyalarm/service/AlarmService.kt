@@ -23,9 +23,14 @@ class AlarmService : Service() {
 
     companion object {
         const val CHANNEL_ID = "cutesy_alarm_channel"
-        const val NOTIFICATION_ID = 1001
         const val ACTION_START_ALARM = "com.example.cutesyalarm.START_ALARM"
         const val ACTION_STOP_ALARM = "com.example.cutesyalarm.STOP_ALARM"
+        // Base notification ID - actual ID will be alarmId % 10000 to avoid conflicts
+        const val NOTIFICATION_ID_BASE = 1000
+        
+        fun getNotificationId(alarmId: Int): Int {
+            return NOTIFICATION_ID_BASE + (alarmId % 9000)
+        }
         
         fun startAlarm(context: Context, alarmId: Int, title: String, time: String) {
             val intent = Intent(context, AlarmService::class.java).apply {
@@ -128,7 +133,8 @@ class AlarmService : Service() {
 
         // Start foreground service with notification (fullScreenIntent will launch activity when locked)
         val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        val notificationId = getNotificationId(alarmId)
+        startForeground(notificationId, notification)
     }
 
     private fun stopAlarm() {

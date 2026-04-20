@@ -73,15 +73,21 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
-            android:launchMode="singleTask"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
             android:theme="@style/Theme.CutesyAlarm.FullScreen" />
 
-        <!-- Alarm foreground service -->
+        <!-- Alarm foreground service - Use specialUse for longer duration than shortService -->
         <service
             android:name=".service.AlarmService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="shortService|specialUse" />
+            android:foregroundServiceType="specialUse"
+            android:foregroundServiceTypeSpecialUseReason="Alarm service to wake user with full screen activity">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="other" />
+        </service>
 
         <!-- OTA Update Service -->
         <service
