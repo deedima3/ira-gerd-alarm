@@ -82,8 +82,7 @@
             android:name=".service.AlarmService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse"
-            android:foregroundServiceTypeSpecialUseReason="Alarm service to wake user with full screen activity">
+            android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="other" />

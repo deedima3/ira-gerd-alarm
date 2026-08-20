@@ -36,11 +36,11 @@ fun AlarmCard(
         label = "scale"
     )
     
-    val cardColor = when {
-        !isEnabled -> CuteColors.Cream
-        alarm.category.name == "MEDICINE" -> CuteColors.SecondaryPink
-        else -> CuteColors.LightMint
-    }
+    val cardColor = when (alarm.category) {
+        com.example.cutesyalarm.model.AlarmCategory.MEDICINE -> CuteColors.SecondaryPink
+        com.example.cutesyalarm.model.AlarmCategory.MEAL -> CuteColors.LightMint
+        com.example.cutesyalarm.model.AlarmCategory.PREP -> CuteColors.LightLavender
+    }.takeIf { isEnabled } ?: CuteColors.Cream
     
     // Responsive padding
     val padding = (16 * scale).dp

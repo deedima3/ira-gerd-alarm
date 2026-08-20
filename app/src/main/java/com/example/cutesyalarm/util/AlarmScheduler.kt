@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
+import com.example.cutesyalarm.util.AlarmPreferences
 import com.example.cutesyalarm.receiver.AlarmReceiver
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -83,11 +84,37 @@ object AlarmScheduler {
     
     fun cancelAlarm(context: Context, alarmId: String) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pendingIntent = AlarmReceiver.createPendingIntent(
+        val pendingIntent: PendingIntent = AlarmReceiver.createPendingIntent(
             context, alarmId, "", ""
         )
         alarmManager.cancel(pendingIntent)
         pendingIntent.cancel()
+    }
+    
+    /**
+     * Reschedules all alarms. First cancels any existing alarms with the given IDs,
+     * then schedules new ones. This prevents duplicate alarms when the app restarts.
+     */
+    fun rescheduleAllAlarms(
+        context: Context,
+        alarms: List<com.example.cutesyalarm.model.Alarm>
+    ) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        
+        alarms.forEach { alarm ->
+            // First cancel any existing alarm with this ID to prevent duplicates
+            val pendingIntent: PendingIntent = AlarmReceiver.createPendingIntent(
+                context, alarm.id, "", ""
+            )
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            
+            // Then schedule the alarm if it's enabled
+            val isEnabled = AlarmPreferences.isAlarmEnabled(context, alarm.id, alarm.isEnabled)
+            if (isEnabled) {
+                scheduleAlarm(context, alarm.id, alarm.title, alarm.time, true)
+            }
+        }
     }
     
     // Schedule an alarm at a specific time in milliseconds (for testing)

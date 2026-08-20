@@ -51,17 +51,9 @@ fun HomeScreen(
     }
     
     // Initialize alarms on first launch
+    // Using rescheduleAllAlarms to ensure no duplicate alarms exist
     LaunchedEffect(Unit) {
-        alarms.forEach { alarm ->
-            val isEnabled = AlarmPreferences.isAlarmEnabled(context, alarm.id, true)
-            AlarmScheduler.scheduleAlarm(
-                context = context,
-                alarmId = alarm.id,
-                title = alarm.title,
-                time = alarm.time,
-                isEnabled = isEnabled
-            )
-        }
+        AlarmScheduler.rescheduleAllAlarms(context, alarms)
     }
     
     Scaffold(
@@ -148,7 +140,8 @@ fun HomeScreen(
             // Category summary
             AlarmSummaryCard(
                 medicineCount = alarms.count { it.category == AlarmCategory.MEDICINE && enabledAlarms[it.id] == true },
-                mealCount = alarms.count { it.category == AlarmCategory.MEAL && enabledAlarms[it.id] == true }
+                mealCount = alarms.count { it.category == AlarmCategory.MEAL && enabledAlarms[it.id] == true },
+                prepCount = alarms.count { it.category == AlarmCategory.PREP && enabledAlarms[it.id] == true }
             )
             
             // Alarm list
@@ -243,7 +236,8 @@ fun GreetingHeader() {
 @Composable
 fun AlarmSummaryCard(
     medicineCount: Int,
-    mealCount: Int
+    mealCount: Int,
+    prepCount: Int
 ) {
     Card(
         modifier = Modifier
@@ -285,6 +279,22 @@ fun AlarmSummaryCard(
                 count = mealCount,
                 label = "Meals",
                 color = CuteColors.Mint
+            )
+            
+            // Divider
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(60.dp)
+                    .background(CuteColors.TextLight.copy(alpha = 0.3f))
+            )
+            
+            // Prep counter
+            SummaryItem(
+                icon = "🛒",
+                count = prepCount,
+                label = "Prep",
+                color = CuteColors.Lavender
             )
         }
     }

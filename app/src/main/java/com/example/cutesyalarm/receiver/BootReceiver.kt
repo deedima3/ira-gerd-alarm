@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.cutesyalarm.model.getDefaultAlarms
-import com.example.cutesyalarm.util.AlarmPreferences
 import com.example.cutesyalarm.util.AlarmScheduler
 
 class BootReceiver : BroadcastReceiver() {
@@ -12,18 +11,10 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             // Reschedule all default alarms after reboot
-            // Use persisted enabled state, not the default
+            // rescheduleAllAlarms cancels any existing alarms first, then reschedules
+            // This prevents duplicate alarms after a reboot
             val alarms = getDefaultAlarms()
-            alarms.forEach { alarm ->
-                val isEnabled = AlarmPreferences.isAlarmEnabled(context, alarm.id, true)
-                AlarmScheduler.scheduleAlarm(
-                    context = context,
-                    alarmId = alarm.id,
-                    title = alarm.title,
-                    time = alarm.time,
-                    isEnabled = isEnabled
-                )
-            }
+            AlarmScheduler.rescheduleAllAlarms(context, alarms)
         }
     }
 }
