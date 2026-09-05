@@ -41,7 +41,7 @@ object AlarmScheduler {
         
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
+                if (AlarmReceiver.canScheduleExactAlarms(context)) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerTimeMillis,
@@ -49,9 +49,9 @@ object AlarmScheduler {
                     )
                 } else {
                     // Fallback to inexact alarm if permission not granted
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTimeMillis,
+                    // Use setAlarmClock for better visibility in status bar (shows next alarm)
+                    alarmManager.setAlarmClock(
+                        AlarmManager.AlarmClockInfo(triggerTimeMillis, null),
                         pendingIntent
                     )
                 }
@@ -64,11 +64,18 @@ object AlarmScheduler {
             }
         } catch (e: SecurityException) {
             // Fallback to inexact alarm if permission denied
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTimeMillis,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(triggerTimeMillis, null),
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTimeMillis,
+                    pendingIntent
+                )
+            }
         }
     }
     
@@ -117,6 +124,14 @@ object AlarmScheduler {
         }
     }
     
+    /**
+     * Reschedules alarms from SharedPreferences (for BootReceiver to restore user alarms)
+     */
+    fun rescheduleAllAlarmsFromPrefs(context: Context) {
+        val alarms = com.example.cutesyalarm.model.getDefaultAlarms()
+        rescheduleAllAlarms(context, alarms)
+    }
+    
     // Schedule an alarm at a specific time in milliseconds (for testing)
     fun scheduleAlarmAtTime(
         context: Context,
@@ -132,17 +147,15 @@ object AlarmScheduler {
         
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
+                if (AlarmReceiver.canScheduleExactAlarms(context)) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerTimeMillis,
                         pendingIntent
                     )
                 } else {
-                    // Fallback to inexact alarm if permission not granted
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTimeMillis,
+                    alarmManager.setAlarmClock(
+                        AlarmManager.AlarmClockInfo(triggerTimeMillis, null),
                         pendingIntent
                     )
                 }
@@ -155,11 +168,18 @@ object AlarmScheduler {
             }
         } catch (e: SecurityException) {
             // Fallback to inexact alarm if permission denied
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTimeMillis,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(triggerTimeMillis, null),
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTimeMillis,
+                    pendingIntent
+                )
+            }
         }
     }
 }

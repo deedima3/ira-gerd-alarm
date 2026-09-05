@@ -18,6 +18,7 @@ import androidx.core.app.NotificationCompat
 import com.example.cutesyalarm.AlarmRingingActivity
 import com.example.cutesyalarm.R
 import com.example.cutesyalarm.receiver.AlarmReceiver
+import com.example.cutesyalarm.util.AlarmScheduler
 
 class AlarmService : Service() {
 
@@ -61,6 +62,7 @@ class AlarmService : Service() {
     private var alarmTitle: String = "Alarm"
     private var alarmTime: String = "00:00"
     private var alarmId: Int = 0
+    private var alarmIdString: String = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -71,6 +73,7 @@ class AlarmService : Service() {
         when (intent?.action) {
             ACTION_START_ALARM -> {
                 alarmId = intent.getIntExtra(AlarmReceiver.EXTRA_ALARM_ID, 0)
+                alarmIdString = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID) ?: alarmId.toString()
                 alarmTitle = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_TITLE) ?: "Alarm"
                 alarmTime = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_TIME) ?: "00:00"
                 startAlarm()
@@ -79,7 +82,7 @@ class AlarmService : Service() {
                 stopAlarm()
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startAlarm() {
@@ -99,7 +102,8 @@ class AlarmService : Service() {
                 "CutesyAlarm::AlarmWakeLock"
             )
         }
-        wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes
+        // Reduced to 5 minutes - enough for user to respond, prevents battery drain if something goes wrong
+        wakeLock?.acquire(5 * 60 * 1000L)
 
         // Play alarm sound
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -109,7 +113,7 @@ class AlarmService : Service() {
         ringtone = RingtoneManager.getRingtone(this, alarmUri)
         ringtone?.play()
 
-        // Vibrate
+        // Vibrate - NO REPEAT (repeat = -1) to prevent infinite vibration and battery drain
         vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
             vibratorManager.defaultVibrator
@@ -122,12 +126,12 @@ class AlarmService : Service() {
                 vib.vibrate(
                     VibrationEffect.createWaveform(
                         longArrayOf(0, 500, 200, 500, 200, 500),
-                        0
+                        -1  // Don't repeat - prevents infinite vibration
                     )
                 )
             } else {
                 @Suppress("DEPRECATION")
-                vib.vibrate(longArrayOf(0, 500, 200, 500, 200, 500), 0)
+                vib.vibrate(longArrayOf(0, 500, 200, 500, 200, 500), -1)
             }
         }
 
@@ -135,6 +139,21 @@ class AlarmService : Service() {
         val notification = createNotification()
         val notificationId = getNotificationId(alarmId)
         startForeground(notificationId, notification)
+        
+        // Schedule a safety timeout to auto-stop alarm after 5 minutes if user doesn't respond
+        // This prevents runaway alarms that drain battery
+        scheduleAutoStop()
+    }
+
+    private fun scheduleAutoStop() {
+        // Use a simple handler to auto-stop after timeout
+        Thread {
+            Thread.sleep(5 * 60 * 1000L) // 5 minutes
+            // Check if service is still running and stop it
+            if (wakeLock?.isHeld == true) {
+                stopAlarm()
+            }
+        }.start()
     }
 
     private fun stopAlarm() {
@@ -162,7 +181,7 @@ class AlarmService : Service() {
 
         // Full screen intent to wake up device and show alarm activity
         val fullScreenIntent = Intent(this, AlarmRingingActivity::class.java).apply {
-            putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmIdString)
             putExtra(AlarmReceiver.EXTRA_ALARM_TITLE, alarmTitle)
             putExtra(AlarmReceiver.EXTRA_ALARM_TIME, alarmTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
@@ -182,7 +201,7 @@ class AlarmService : Service() {
             this,
             alarmId + 1000,
             Intent(this, AlarmRingingActivity::class.java).apply {
-                putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+                putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmIdString)
                 putExtra(AlarmReceiver.EXTRA_ALARM_TITLE, alarmTitle)
                 putExtra(AlarmReceiver.EXTRA_ALARM_TIME, alarmTime)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
@@ -217,9 +236,12 @@ class AlarmService : Service() {
                 description = "Alarm notifications"
                 setBypassDnd(true)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), null)
-                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                setShowBadge(true)
+                // Note: setSound and vibrationPattern on channel are deprecated in API 26+
+                // Sound/vibration should be set on the notification builder instead
                 enableVibration(true)
+                // Set lock screen visibility to show full notification
+                setLockscreenVisibility(Notification.VISIBILITY_PUBLIC)
             }
 
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

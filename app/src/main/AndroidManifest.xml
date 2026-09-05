@@ -77,16 +77,12 @@
             android:taskAffinity=""
             android:theme="@style/Theme.CutesyAlarm.FullScreen" />
 
-        <!-- Alarm foreground service - Use specialUse for longer duration than shortService -->
+        <!-- Alarm foreground service - Use mediaPlayback for audio playback (alarm sound) -->
         <service
             android:name=".service.AlarmService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="other" />
-        </service>
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- OTA Update Service -->
         <service

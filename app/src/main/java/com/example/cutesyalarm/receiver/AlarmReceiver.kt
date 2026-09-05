@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
+import androidx.core.content.ContextCompat
 import com.example.cutesyalarm.service.AlarmService
 import com.example.cutesyalarm.util.AlarmScheduler
 
@@ -82,6 +84,29 @@ class AlarmReceiver : BroadcastReceiver() {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+        }
+        
+        /**
+         * Check if the app can schedule exact alarms (Android 12+)
+         * Returns true if permission is granted or not required (Android < 12)
+         */
+        fun canScheduleExactAlarms(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                return alarmManager.canScheduleExactAlarms()
+            }
+            return true // Not required on older Android versions
+        }
+        
+        /**
+         * Open the exact alarm permission settings screen for the user to grant permission
+         */
+        fun openExactAlarmPermissionSettings(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            }
         }
     }
 }
